@@ -11,3 +11,4 @@ dill
 matplotlib
 scikit-learn
 lovely-numpy
+wandb
