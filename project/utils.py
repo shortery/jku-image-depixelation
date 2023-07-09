@@ -72,9 +72,7 @@ def prepare_image(
     known_array = np.ones(image.shape, dtype=bool)
     known_array[pix_indexes] = False
 
-    target_array = image[pix_indexes].copy()
-
-    return pixelated_image, known_array, target_array
+    return image, pixelated_image, known_array
 
 
 
