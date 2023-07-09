@@ -3,3 +3,5 @@ exercises
 env
 **/__pycache__
 **/.ipynb_checkpoints
+project/data
+example
