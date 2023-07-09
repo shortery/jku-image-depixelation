@@ -1,0 +1,13 @@
+ipykernel
+notebook
+numpy
+pandas
+torch
+torchvision
+tensorboard
+tqdm
+Pillow
+dill
+matplotlib
+scikit-learn
+lovely-numpy
