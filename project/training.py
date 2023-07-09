@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from tqdm import tqdm
+import wandb
 
 def training_loop(
     network: torch.nn.Module,
@@ -21,6 +22,9 @@ def training_loop(
     train_losses = []
     eval_losses = []
 
+    # create wandb run
+    wandb.init(project="jku-image-depixelation")
+
     for epoch in tqdm(range(num_epochs), disable=not show_progress):
         train_epoch_losses = []
         valid_epoch_losses = []
@@ -35,11 +39,15 @@ def training_loop(
             target_tensor = original_image[known_array == False]
 
             loss = loss_function(output_sliced, target_tensor)  # Compute loss
+            wandb.log({"train-loss": loss})
+
             loss.backward()  # Compute gradients (backward pass)
             optimizer.step()  # Perform gradient descent update step
             optimizer.zero_grad()  # Reset gradients
             train_epoch_losses.append(loss.item()) # training loss on the minibatch
-        train_losses.append(np.average(train_epoch_losses)) # trainig losses averaged over all minibatch losses
+        averaged_train_loss = np.average(train_epoch_losses) # trainig losses averaged over all minibatch losses
+        train_losses.append(averaged_train_loss) 
+        wandb.log({"avg-train-loss": averaged_train_loss})
 
         # evaluating the network
         network.eval()
@@ -53,7 +61,9 @@ def training_loop(
 
                 loss = loss_function(output_sliced, target_tensor)
                 valid_epoch_losses.append(loss.item())
-        eval_losses.append(np.average(valid_epoch_losses))
+        averaged_val_loss = np.average(valid_epoch_losses)
+        eval_losses.append(averaged_val_loss)
+        wandb.log({"avg-valid-loss": averaged_val_loss})
 
         # early stopping criterion
         if len(eval_losses) > last_n_epochs:
