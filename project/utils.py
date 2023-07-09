@@ -28,4 +28,68 @@ def to_grayscale(pil_image: np.ndarray) -> np.ndarray:
 
 
 
+def prepare_image(
+    image: np.ndarray,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    size: int
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Create the pixelated image by pixelating a rectangular area
+    Args:
+        image: 3D numpy array with shape (1, H, W) that contains a grayscale image
+        x, y: x- and y-coordinates within image where the pixelated area should start
+        widts, height: width and height of the pixelated area
+        size: block size of the pixelation process
+    Returns:
+        3-tuple (pixelated_image, known_array, target_array)
+        pixelated_image: 3D numpy array that represents the pixelated version of the input image. Shape (1, H, W)
+        known_array: boolean 3D numpy array that has entries True for all original (unchanged) pixels and False for unknown (pixelated) pixels. Shape (1, H, W)
+        target_array: 3D numpy array that represents the original pixels of the pixelated area before pixelation process
+    """
+    
+    if len(image.shape) != 3:
+        raise ValueError("The image must have three dimensions.")
+    channel, H, W = image.shape
+    if channel != 1:
+        raise ValueError("The image must have the first dimension (the channel size) equal to 1.")
+    if width < 2 or height < 2 or size < 2:
+        raise ValueError("Width, height and size must be greater than or equal to 2.")
+    if x < 0 or y < 0:
+        raise ValueError("The x and y coordinates must be greater than or equal to 0.")
+    if x + width > W:
+        raise ValueError("The pixelated area exceeded the input image width.")
+    if y + height > H:
+        raise ValueError("The pixelated area exceeded the input image height.")
 
+    pix_indexes = slice(None, None), slice(y, y+height), slice(x, x+width)
+
+    pixelated_image = image.copy()
+    pixelated_image[pix_indexes] = pixelate_window(pixelated_image[pix_indexes], size)
+
+    known_array = np.ones(image.shape, dtype=bool)
+    known_array[pix_indexes] = False
+
+    target_array = image[pix_indexes].copy()
+
+    return pixelated_image, known_array, target_array
+
+
+
+def pixelate_window(window:np.ndarray, size: int) -> np.ndarray:
+    """Pixelate a rectangular area (window)"""
+    if len(window.shape) != 3 or window.shape[0] != 1:
+        raise ValueError("Expected shape (1, H, W).")
+    
+    window = window.reshape(window.shape[-2:])
+    pix_window = np.ones(window.shape).astype(window.dtype)
+    max_r = np.ceil(window.shape[0]/size).astype(int)
+    max_c = np.ceil(window.shape[1]/size).astype(int)
+    for r in range(max_r):
+        for c in range(max_c):
+            indexes = slice(size*r, size*(r+1)), slice(size*c, size*(c+1))
+            block = window[indexes]
+            pix_window[indexes] = block.mean()
+    return pix_window.reshape(1, *(pix_window.shape))
