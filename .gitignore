@@ -6,3 +6,5 @@ env
 project/data
 example
 wandb/
+project/saved_models
+project/predictions
