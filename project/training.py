@@ -1,31 +1,42 @@
 import torch
+import torch.utils.data
 import numpy as np
 from tqdm import tqdm
 import wandb
+import os
 
 def training_loop(
     network: torch.nn.Module,
     train_data: torch.utils.data.Dataset,
-    eval_data: torch.utils.data.Dataset,
+    val_data: torch.utils.data.Dataset,
     num_epochs: int,
     last_n_epochs: int,
     learning_rate: float,
-    show_progress: bool = False,
-    num_logged_images: int = 0
+    batch_size: int,
+    show_progress: bool,
+    num_logged_images: int,
+    device: str,
+    models_path: str
     ) -> tuple[list, list]:
     """Training loop with early stopping criterion included"""
 
-    train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=32)
-    valid_dataloader  =torch.utils.data.DataLoader(eval_data, batch_size=32)
+    train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, pin_memory=True, num_workers=4, prefetch_factor=16, shuffle=True)
+    valid_dataloader = torch.utils.data.DataLoader(val_data, batch_size=batch_size, pin_memory=True, num_workers=4, prefetch_factor=16)
     
     optimizer = torch.optim.Adam(network.parameters(), lr=learning_rate)
     loss_function = torch.nn.MSELoss()
 
     train_losses = []
-    eval_losses = []
+    val_losses = []
 
     # create wandb run
     wandb.init(project="jku-image-depixelation")
+
+    # save initial model as "best" model (will be overwritten later)
+    best_val_loss = np.inf
+    run_name = wandb.run.name
+    saved_model_file = os.path.join(models_path, f"{wandb.run.name}.pt")
+    torch.save(network, saved_model_file)
 
     for epoch in tqdm(range(num_epochs), disable=not show_progress):
         train_epoch_losses = []
@@ -34,6 +45,10 @@ def training_loop(
         # training the network 
         network.train()
         for concat_pixelated_known, original_image in train_dataloader:
+            # move to device
+            concat_pixelated_known = concat_pixelated_known.to(device)
+            original_image = original_image.to(device)
+
             output = network(concat_pixelated_known)  # Get model output (forward pass)
 
             known_array = concat_pixelated_known[:, 1:2, :, :]
@@ -55,6 +70,10 @@ def training_loop(
         network.eval()
         with torch.no_grad():
             for concat_pixelated_known, original_image in valid_dataloader:
+                # move to device
+                concat_pixelated_known = concat_pixelated_known.to(device)
+                original_image = original_image.to(device)
+
                 output = network(concat_pixelated_known)
 
                 pixelated_array = concat_pixelated_known[:, :1, :, :]
@@ -64,20 +83,26 @@ def training_loop(
 
                 loss = loss_function(output_sliced, target_tensor)
                 valid_epoch_losses.append(loss.item())
+
         averaged_val_loss = np.average(valid_epoch_losses)
-        eval_losses.append(averaged_val_loss)
+        val_losses.append(averaged_val_loss)
         wandb.log({"valid-avg-loss": averaged_val_loss})
+
+        # save best model
+        if averaged_val_loss < best_val_loss:
+            best_val_loss = averaged_val_loss
+            torch.save(network, saved_model_file)
         
         for i in range(num_logged_images):
-            images = np.concatenate([pixelated_array[i], output[i], original_image[i]], axis=0)
+            images = np.concatenate([pixelated_array[i].cpu(), output[i].cpu(), original_image[i].cpu()], axis=2)
             wandb.log({
-                f"images_{i}/concatenated_img": wandb.Image(images, caption='Pixelated,    Predicted,    Original')
+                f"images/concatenated_img_{i}": wandb.Image(images, caption='Pixelated,    Predicted,    Original')
             })
 
         # early stopping criterion
-        if len(eval_losses) > last_n_epochs:
-            if min(eval_losses[:-last_n_epochs]) <= min(eval_losses[-last_n_epochs:]):
-                return train_losses, eval_losses
+        if len(val_losses) > last_n_epochs:
+            if min(val_losses[:-last_n_epochs]) <= min(val_losses[-last_n_epochs:]):
+                return train_losses, val_losses, saved_model_file, run_name
     
-    return train_losses, eval_losses
+    return train_losses, val_losses, saved_model_file, run_name
 
