@@ -69,10 +69,13 @@ class RandomImagePixelationDataset(Dataset):
         x = rng.integers(low=0, high=image_width-width, endpoint=True)
         y = rng.integers(low=0, high=image_height-height, endpoint=True)
         size = rng.integers(low=self.size_range[0], high=self.size_range[1], endpoint=True)
-
         original_image, pixelated_image, known_array = utils.prepare_image(grayscale_image, x, y, width, height, size)
+        
+        # normalize
+        original_image /= 255
+        pixelated_image /= 255
+        
         concat_pixelated_known = np.concatenate((pixelated_image, known_array), axis=0)
-
         return concat_pixelated_known, original_image
     
 
