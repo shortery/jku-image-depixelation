@@ -26,13 +26,15 @@ class SimpleCNN(torch.nn.Module):
             )
             layers.append(conv_layer)
 
-            # add an activation function    
-            layers.append(activation_function)
+            if i != num_hidden_layers-1:
+                # add an activation function to hidden layers   
+                layers.append(activation_function)
 
         # register all layers    
         self.layers = torch.nn.Sequential(*layers)
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.layers(x)
+        # skip connection
+        return x[:, :1, :, :] + self.layers(x)
     
