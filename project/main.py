@@ -4,7 +4,7 @@ import torch
 import os
 
 from datasets import create_train_val_datasets
-from architectures import SimpleCNN
+from architectures import SimpleCNN, ResidualCNN
 from training import training_loop
 from inference import predict
 from submission_serialization import serialize
@@ -20,17 +20,27 @@ torch.manual_seed(0)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# create simple cnn model
-cnn_model = SimpleCNN(
+# # create simple cnn model
+# cnn_model = SimpleCNN(
+#     input_channels=2,
+#     hidden_channels=128,
+#     output_channels=1,
+#     num_hidden_layers=10
+# ).to(device)
+
+# create residual cnn model
+residual_model = ResidualCNN(
     input_channels=2,
     hidden_channels=128,
     output_channels=1,
-    num_hidden_layers=10
+    squeeze_channels=64,
+    num_blocks=8,
+    kernel_size=3
 ).to(device)
 
 # train network
 train_losses, eval_losses, saved_model_file, run_name = training_loop(
-    network=cnn_model, train_data=train_set, val_data=valid_set,
+    network=residual_model, train_data=train_set, val_data=valid_set,
     num_epochs=100, last_n_epochs=10, learning_rate=0.0001, batch_size=64,
     show_progress=True, num_logged_images=6, device=device, models_path="project/saved_models/"
 )
