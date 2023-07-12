@@ -46,7 +46,7 @@ class ResidualBlock(torch.nn.Module):
         num_channels: int,
         squeeze_channels: int,
         kernel_size: int = 3,
-        activation_function: torch.nn.Module = torch.nn.ELU()
+        activation_function: torch.nn.Module = torch.nn.ReLU()
     ) -> None:
         """Block with residual skip connection"""
         
@@ -58,8 +58,7 @@ class ResidualBlock(torch.nn.Module):
             kernel_size=kernel_size,
             padding=kernel_size // 2
         )
-
-        self.activation_layer = activation_function
+        self.activation_layer_1 = activation_function
 
         self.conv_layer_2 = torch.nn.Conv2d(
             in_channels=squeeze_channels,
@@ -67,13 +66,14 @@ class ResidualBlock(torch.nn.Module):
             kernel_size=kernel_size,
             padding=kernel_size // 2
         )
+        self.activation_layer_2 = activation_function
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         skip = x
         x = self.conv_layer_1(x)
-        x = self.activation_layer(x)
+        x = self.activation_layer_1(x)
         x = self.conv_layer_2(x)
-        x = self.activation_layer(x)
+        x = self.activation_layer_2(x)
         return x + skip
         
 
@@ -87,21 +87,20 @@ class ResidualCNN(torch.nn.Module):
         squeeze_channels: int,
         num_blocks: int,
         kernel_size: int = 3,
-        activation_function: torch.nn.Module = torch.nn.ELU()
+        activation_function: torch.nn.Module = torch.nn.ReLU()
     ) -> None:
         
         super().__init__()
 
-        layers = []
+        blocks = []
 
         # add convolution layer to change the dimension
-        conv_layer_in = torch.nn.Conv2d(
+        self.conv_layer_in = torch.nn.Conv2d(
             in_channels=input_channels,
             out_channels=hidden_channels,
             kernel_size=kernel_size,
             padding=kernel_size // 2
         )
-        layers.append(conv_layer_in)
         
         for _ in range(num_blocks):
             # add residual block
@@ -111,21 +110,22 @@ class ResidualCNN(torch.nn.Module):
                 kernel_size,
                 activation_function
             )
-            layers.append(res_block)
+            blocks.append(res_block)
 
         # add convolution layer to change the dimension
-        conv_layer_out = torch.nn.Conv2d(
+        self.conv_layer_out = torch.nn.Conv2d(
             in_channels=hidden_channels,
             out_channels=output_channels,
             kernel_size=kernel_size,
             padding=kernel_size // 2
         )
-        layers.append(conv_layer_out)
 
-        # register all layers    
-        self.layers = torch.nn.Sequential(*layers)
+        # register all layers
+        self.blocks = torch.nn.Sequential(*blocks)
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.layers(x)
-
+        x = self.conv_layer_in(x)
+        x = self.blocks(x)
+        x = self.conv_layer_out(x)
+        return x
