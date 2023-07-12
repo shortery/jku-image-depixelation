@@ -31,10 +31,10 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # create residual cnn model
 residual_model = ResidualCNN(
     input_channels=2,
-    hidden_channels=200,
+    hidden_channels=256,
     output_channels=1,
-    squeeze_channels=128,
-    num_blocks=5,
+    squeeze_channels=64,
+    num_blocks=8,
     kernel_size=3
 ).to(device)
 # train network
