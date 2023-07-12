@@ -31,13 +31,12 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # create residual cnn model
 residual_model = ResidualCNN(
     input_channels=2,
-    hidden_channels=128,
+    hidden_channels=200,
     output_channels=1,
-    squeeze_channels=64,
-    num_blocks=8,
+    squeeze_channels=128,
+    num_blocks=5,
     kernel_size=3
 ).to(device)
-
 # train network
 train_losses, eval_losses, saved_model_file, run_name = training_loop(
     network=residual_model, train_data=train_set, val_data=valid_set,
@@ -47,7 +46,7 @@ train_losses, eval_losses, saved_model_file, run_name = training_loop(
 
 # predictions on the test set
 best_network = torch.load(saved_model_file)
-predictions = predict(network=best_network, test_set_dict=test_set_dict, batch_size=64, device=device)
+predictions = predict(network=best_network, test_set_dict=test_set_dict, batch_size=32, device=device)
 
 # transform predictions to the correct shape for the challenge server
 serialize(submission=predictions, path_or_filehandle=os.path.join("project/predictions", f"{run_name}.data"))
